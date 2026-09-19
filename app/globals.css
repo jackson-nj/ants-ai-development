@@ -62,6 +62,10 @@ html { scroll-behavior:smooth; }
 .site-header.nav-scrolled nav a,.site-header.nav-scrolled .brand,.site-header.nav-scrolled .btn-ghost { color:var(--ink); }
 .site-header.nav-scrolled .brand-mark span { background:var(--green); }.site-header.nav-scrolled .brand-dot { color:var(--green); }
 
+@media (max-width: 600px) {
+  .site-header .header-signup { display:none; }
+}
+
 /* Split-screen auth treatment from the supplied reference. */
 .auth-page { min-height:100vh; display:grid; grid-template-columns:minmax(0, 1.08fr) minmax(430px, .92fr); background:#f8f8f6; }
 .auth-brand { position:absolute; z-index:4; left:0; top:0; padding:52px 5.5vw; }.auth-brand .brand { color:#fff; font-size:36px; letter-spacing:-2px; }.auth-brand .brand-mark span { background:#f0ad65; }.auth-brand .brand-dot { color:#f0ad65; }
