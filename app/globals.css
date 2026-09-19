@@ -2,8 +2,32 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+/* Micro-inspired restraint: quieter surfaces, fewer colors, stronger typography. */
+:root { --ink:#171717; --muted:#77777d; --line:#dedee3; --paper:#f7f7f8; --mint:#eef0f8; --green:#2748d8; --dark:#171717; --blue:#edf0ff; --purple:#f0efff; --orange:#f3f3f4; }
+
 :root { --ink:#17212b; --muted:#72808d; --line:#e7ebed; --paper:#fbfcfb; --mint:#e7f3ed; --green:#2f8f67; --dark:#17212b; --blue:#e7effb; --purple:#eeeafb; --orange:#fff1df; }
 * { box-sizing:border-box; }
+.btn-primary { background:#2948d8; }
+.sidebar nav button.active { background:#f0f0f4; color:#171717; }
+.metric-icon.blue,.metric-icon.purple,.metric-icon.orange,.metric-icon.green { background:#f0f0f4; color:#2948d8; }
+.opportunities-grid .company-icon,.company-icon { filter:saturate(.35); }
+.site-footer { position:relative; overflow:hidden; background:#171717; color:#f4f4f4; padding:90px max(7vw, 40px) 28px; margin-top:30px; }
+.footer-heading { max-width:900px; margin:0 auto 92px; text-align:center; font-size:clamp(32px, 5vw, 62px); line-height:1.08; letter-spacing:-3px; font-weight:800; }
+.footer-grid { position:relative; z-index:1; max-width:900px; margin:0 auto; display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:46px; }
+.footer-grid > div { display:flex; flex-direction:column; gap:13px; }
+.footer-grid .footer-brand { gap:15px; }
+.footer-grid .brand { color:#fff; }
+.footer-grid .brand-mark span { background:#fff; }
+.footer-brand p,.footer-grid span,.footer-grid a,.footer-bottom { color:#99999f; font-size:11px; }
+.footer-grid > div > span { color:#68686e; font-weight:700; }
+.footer-grid a:hover,.footer-bottom a:hover { color:#fff; }
+.footer-socials { display:flex; gap:16px; }
+.footer-socials a { color:#bdbdc2; font-weight:700; }
+.footer-bottom { max-width:900px; margin:88px auto 0; padding-top:18px; border-top:1px solid #303034; display:flex; justify-content:space-between; gap:20px; }
+.footer-bottom div { display:flex; gap:18px; }
+.footer-wordmark { position:absolute; left:5%; bottom:-57px; color:#242428; font-size:220px; line-height:1; font-weight:900; letter-spacing:-16px; pointer-events:none; }
+@media(max-width:600px){.site-footer{padding:62px 24px 24px}.footer-heading{margin-bottom:55px;letter-spacing:-1.5px}.footer-grid{grid-template-columns:1fr 1fr;gap:34px 22px}.footer-brand{grid-column:1/-1}.footer-bottom{margin-top:55px;display:block}.footer-bottom div{margin-top:14px;flex-wrap:wrap}.footer-wordmark{font-size:120px;bottom:-25px;letter-spacing:-9px}}
+
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:Arial, Helvetica, sans-serif; }
 button,input,textarea,select { font:inherit; } button { cursor:pointer; } a { color:inherit; text-decoration:none; }
