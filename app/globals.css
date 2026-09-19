@@ -42,6 +42,17 @@
 .hero-proof { position:relative; z-index:4; max-width:1190px; margin:-78px auto 0; padding:0 26px 30px; color:#fff; }.hero-proof p { color:rgba(255,255,255,.75); }.hero-proof strong { color:#fff; }.hero-visual { margin-top:0; }
 @media(max-width:600px){.hero{min-height:620px;padding:0 24px}.hero-content{padding-bottom:110px}.hero h1{font-size:55px;letter-spacing:-3px}.hero-proof{margin-top:-50px;padding:0 24px 28px}.hero-visual{margin-top:10px}}
 
+/* Final hero layering corrections */
+.site-header { position:absolute; top:0; left:0; right:0; z-index:10; max-width:none; color:#f7f5ef; }
+.site-header .brand,.site-header nav,.site-header .btn-ghost { color:#f7f5ef; }
+.site-header .brand-mark span { background:#f0ad65; }.site-header .brand-dot { color:#f0ad65; }
+.site-header nav a:hover { color:#f0ad65; }
+.hero { margin-top:0 !important; padding-top:82px !important; }
+.hero-content { padding-bottom:125px; }
+.hero-proof { margin:0 auto !important; padding-top:28px; padding-bottom:36px; }
+.hero-visual { margin:0 auto !important; height:380px; }
+.visual-card-main { top:26px; }.visual-card-float { top:218px; }
+
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:Arial, Helvetica, sans-serif; }
 button,input,textarea,select { font:inherit; } button { cursor:pointer; } a { color:inherit; text-decoration:none; }
