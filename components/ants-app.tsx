@@ -48,6 +48,7 @@ function SiteFooter() {
 function Landing({ go }: { go: (view: View) => void }) {
   const [heroVideoDone, setHeroVideoDone] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const onScroll = () => setNavScrolled(window.scrollY > 28)
@@ -56,8 +57,10 @@ function Landing({ go }: { go: (view: View) => void }) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  const closeMenu = () => setMenuOpen(false)
+
   return <main className={`landing-page ${heroVideoDone ? 'hero-ready' : ''}`}>
-    <header className={`site-header ${navScrolled ? 'nav-scrolled' : ''}`}><Brand /><nav><a href="#how">How it works</a><a href="#features">Features</a><a href="#about">About</a></nav><div className="header-actions"><Button variant="ghost" onClick={() => go('login')}>Log in</Button><Button onClick={() => go('signup')}>Get started <ArrowRight size={16}/></Button></div><button className="mobile-menu"><Menu size={21}/></button></header>
+    <header className={`site-header ${navScrolled ? 'nav-scrolled' : ''} ${menuOpen ? 'menu-open' : ''}`}><Brand /><nav><a href="#how" onClick={closeMenu}>How it works</a><a href="#features" onClick={closeMenu}>Features</a><a href="#about" onClick={closeMenu}>About</a></nav><div className="header-actions"><Button variant="ghost" onClick={() => { closeMenu(); go('login') }}>Log in</Button><Button onClick={() => { closeMenu(); go('signup') }}>Get started <ArrowRight size={16}/></Button></div><button className="mobile-menu" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={21}/> : <Menu size={21}/>}</button></header>
     <section className="hero"><video className="hero-video" autoPlay muted playsInline preload="auto" onLoadedData={(event) => { void event.currentTarget.play() }} onEnded={() => setHeroVideoDone(true)} aria-hidden="true"><source src="/hero-intro.mp4" type="video/mp4" /></video><div className="hero-image" aria-hidden="true" /><div className="hero-shade" aria-hidden="true" /><div className="hero-content"><div className="eyebrow">Your next opportunity is closer than you think</div><h1>Find work that<br/><em>fits you.</em></h1><p className="hero-copy">Ants.AI helps talented people discover remote opportunities, understand their fit, and apply with confidence.</p><div className="hero-actions"><Button onClick={() => go('signup')}>Start your journey <ArrowRight size={17}/></Button><button className="text-link" onClick={() => go('login')}>I already have an account <ArrowRight size={15}/></button></div></div></section>
     <div className="hero-proof"><div className="avatars"><span>J</span><span>N</span><span>+</span></div><p><strong>10,000+</strong> people finding better work<br/><span>Every week, everywhere.</span></p></div>
     <section className="hero-visual"><div className="visual-card visual-card-main"><div className="visual-card-top"><span className="tiny-label">TODAY'S MATCH</span><span className="match-pill">96% match</span></div><div className="company-row"><div className="company-icon blue">T</div><div><strong>Senior Frontend Engineer</strong><span>TechNova · Remote worldwide</span></div><MoreHorizontal size={18}/></div><div className="match-line"><span></span><span></span><span></span><span></span></div><div className="visual-meta"><span><Clock3 size={14}/> Posted 2 hours ago</span><span><Zap size={14}/> Strong fit for you</span></div></div><div className="visual-card visual-card-float"><span className="float-icon"><Sparkles size={17}/></span><div><strong>Your profile is looking great</strong><span>3 new matches found today</span></div><Check size={17} className="success-icon"/></div><div className="visual-grid"></div></section>
