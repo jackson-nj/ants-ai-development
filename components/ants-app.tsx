@@ -26,19 +26,28 @@ function usePlatformData() {
     const supabase = getSupabaseBrowserClient()
     let active = true
     async function load() {
-      await fetch('/api/opportunities/sync', { method: 'POST' }).catch(() => undefined)
-      const [{ data: jobRows }, { data: sessionData }] = await Promise.all([
-        supabase.from('opportunities').select('*').order('posted_at', { ascending: false }),
-        supabase.auth.getSession(),
-      ])
-      if (!active) return
-      const mapped = (jobRows ?? []).map((job) => ({ id: job.id, company: job.company, role: job.role, location: job.location, mode: job.mode, salary: job.salary, posted: new Date(job.posted_at).toLocaleDateString(), score: job.match_score, color: '#426b5a', tags: job.tags ?? [], description: job.description }))
-      setJobs(mapped)
-      if (sessionData.session?.user) {
-        const { data } = await supabase.from('applications').select('id, opportunity_id, status, updated_at, opportunities(*)').eq('user_id', sessionData.session.user.id).order('updated_at', { ascending: false })
-        if (active) setApplications((data ?? []).map((row: any) => ({ ...row, opportunity: mapped.find((job) => job.id === row.opportunity_id) })))
+      try {
+        await fetch('/api/opportunities/sync', { method: 'POST' }).catch(() => undefined)
+        const [{ data: jobRows }, { data: sessionData }] = await Promise.all([
+          supabase.from('opportunities').select('*').order('posted_at', { ascending: false }),
+          supabase.auth.getSession(),
+        ])
+        if (!active) return
+        const mapped = (jobRows ?? []).map((job) => ({ id: job.id, company: job.company, role: job.role, location: job.location, mode: job.mode, salary: job.salary, posted: new Date(job.posted_at).toLocaleDateString(), score: job.match_score ?? 0, color: '#426b5a', tags: Array.isArray(job.tags) ? job.tags : [], description: job.description ?? '' }))
+        setJobs(mapped)
+        if (sessionData.session?.user) {
+          const { data } = await supabase.from('applications').select('id, opportunity_id, status, updated_at, opportunities(*)').eq('user_id', sessionData.session.user.id).order('updated_at', { ascending: false })
+          if (active) setApplications((data ?? []).map((row: any) => ({ ...row, opportunity: mapped.find((job) => job.id === row.opportunity_id) })))
+        }
+      } catch (error) {
+        console.error('[v0] Dashboard data load failed:', error)
+        if (active) {
+          setJobs([])
+          setApplications([])
+        }
+      } finally {
+        if (active) setLoading(false)
       }
-      setLoading(false)
     }
     void load()
     return () => { active = false }
