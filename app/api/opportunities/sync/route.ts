@@ -40,6 +40,9 @@ export async function POST() {
   if (jobs.length === 0) return NextResponse.json({ error: 'Job providers returned no listings' }, { status: 502 })
 
   const { error } = await supabase.from('opportunities').upsert(jobs, { onConflict: 'source,source_id' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ synced: jobs.length })
+  if (error) {
+    console.error('[v0] Opportunity sync database error:', error.message)
+    return NextResponse.json({ error: 'Unable to save live opportunities', detail: error.message }, { status: 500 })
+  }
+  return NextResponse.json({ synced: jobs.length, providers: { remotive: remotive.length, arbeitnow: arbeitnow.length } })
 }
