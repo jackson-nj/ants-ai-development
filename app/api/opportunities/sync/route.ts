@@ -38,7 +38,8 @@ export async function POST() {
     match_score: 0,
     posted_at: (() => { const parsed = new Date(String(job.publication_date ?? job.created_at ?? '')); return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString() })(),
   })
-  const jobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy'))]
+  const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy'))]
+  const jobs = Array.from(new Map(rawJobs.map((job) => [`${job.source}:${job.source_id}`, job])).values())
   if (jobs.length === 0) return NextResponse.json({ error: 'Job providers returned no listings' }, { status: 502 })
 
   const { error } = await supabase.from('opportunities').upsert(jobs, { onConflict: 'source,source_id' })
