@@ -16,6 +16,7 @@ export function AdminDashboard() {
     const { data: sessionData } = await supabase.auth.getSession()
     const user = sessionData.session?.user
     if (!user) { setMessage('Please sign in to access the admin dashboard.'); return }
+    if (user.app_metadata?.role !== 'admin') { setMessage('You do not have permission to access the admin dashboard.'); return }
     const [{ count: opportunityCount, error: opportunityError }, { data: applicationRows, count: applicationCount, error: applicationError }] = await Promise.all([
       supabase.from('opportunities').select('id', { count: 'exact', head: true }),
       supabase.from('applications').select('user_id', { count: 'exact' }),
@@ -29,7 +30,7 @@ export function AdminDashboard() {
 
   useEffect(() => { void load() }, [])
 
-  if (!state) return <main className="admin-page"><div className="admin-message"><p>{message}</p>{message.startsWith('Please') ? <a className="admin-link" href="/">Return to sign in <LogIn size={15}/></a> : <button className="admin-link" onClick={() => void load()}>Retry <RefreshCw size={15}/></button>}</div></main>
+  if (!state) return <main className="admin-page"><div className="admin-message"><p>{message}</p>{message.startsWith('Please') || message.startsWith('You do not') ? <a className="admin-link" href="/">Return to sign in <LogIn size={15}/></a> : <button className="admin-link" onClick={() => void load()}>Retry <RefreshCw size={15}/></button>}</div></main>
   return <main className="admin-page"><header className="admin-header"><div><span className="section-kicker">ANTS.AI ADMINISTRATION</span><h1>Admin Dashboard<span className="heading-dot">.</span></h1><p>Signed in as {state.email}</p></div><a className="admin-link" href="/"><ArrowLeft size={15}/> Back to app</a></header><section className="admin-metrics"><AdminMetric icon={<Users/>} label="Users Details" value={state.users.length}/><AdminMetric icon={<BriefcaseBusiness/>} label="Total Opportunities" value={state.opportunities}/><AdminMetric icon={<ClipboardList/>} label="Total Applications" value={state.applications}/></section><section className="admin-panel"><div className="admin-panel-heading"><div><span className="section-kicker">MANAGE YOUR PLATFORM</span><h2>Opportunities</h2></div><button className="admin-link" onClick={() => void load()}><RefreshCw size={15}/> Refresh</button></div><div className="admin-table"><div className="admin-table-row admin-table-head"><span>User ID</span><span>Applications</span></div>{state.users.length === 0 ? <p className="admin-empty">No application activity yet.</p> : state.users.map((user) => <div className="admin-table-row" key={user.id}><span>{user.id}</span><strong>{user.applications}</strong></div>)}</div></section></main>
 }
 
