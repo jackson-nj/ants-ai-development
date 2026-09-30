@@ -23,8 +23,8 @@ function isEnglishOpportunity(job: Record<string, unknown>) {
 }
 
 function isRemoteOpportunity(job: Record<string, unknown>) {
-  const text = [job.location, job.description, job.jobDescription, job.title].filter(Boolean).join(' ')
-  return /remote|worldwide|work from home|distributed|anywhere/i.test(text) && !/on-site|onsite|in office/i.test(text)
+  const location = String(job.location ?? '')
+  return /(^|[,(\s-])remote($|[),\s-])|worldwide|work from home/i.test(location) && !/on-site|onsite|in office|hybrid/i.test(location)
 }
 
 type Application = { id: string; opportunity_id: string; status: string; updated_at: string; opportunity?: Opportunity }
