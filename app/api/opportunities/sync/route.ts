@@ -39,7 +39,8 @@ export async function POST() {
     posted_at: (() => { const parsed = new Date(String(job.publication_date ?? job.created_at ?? '')); return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString() })(),
   })
   const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy'))]
-  const jobs = Array.from(new Map(rawJobs.map((job) => [`${job.source}:${job.source_id}`, job])).values())
+  const remoteJobs = rawJobs.filter((job) => /remote|worldwide|work from home|distributed|anywhere/i.test(`${job.location} ${job.description} ${job.role}`) && !/on-site|onsite|in office/i.test(`${job.location} ${job.description} ${job.role}`))
+  const jobs = Array.from(new Map(remoteJobs.map((job) => [`${job.source}:${job.source_id}`, job])).values())
   if (jobs.length === 0) return NextResponse.json({ error: 'Job providers returned no listings' }, { status: 502 })
 
   const { error } = await supabase.from('opportunities').upsert(jobs, { onConflict: 'source,source_id' })
