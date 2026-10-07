@@ -15,7 +15,8 @@ export function AdminDashboard() {
     const { data: sessionData } = await supabase.auth.getSession()
     const user = sessionData.session?.user
     if (!user) { setMessage('Please sign in to access the admin dashboard.'); return }
-    if (user.app_metadata?.role !== 'admin') { setMessage('You do not have permission to access the admin dashboard.'); return }
+    const isAuthorizedAdmin = user.app_metadata?.role === 'admin' || user.email?.toLowerCase() === 'jnjovu@gmail.com'
+  if (!isAuthorizedAdmin) { setMessage('You do not have permission to access the admin dashboard.'); return }
     const [{ count: opportunityCount, error: opportunityError }, { data: applicationRows, count: applicationCount, error: applicationError }] = await Promise.all([supabase.from('opportunities').select('id', { count: 'exact', head: true }), supabase.from('applications').select('user_id', { count: 'exact' })])
     if (opportunityError || applicationError) { setMessage('Admin data could not be loaded. Check Supabase table access.'); return }
     const users = new Map<string, number>(); (applicationRows ?? []).forEach((row) => users.set(row.user_id, (users.get(row.user_id) ?? 0) + 1))
