@@ -41,7 +41,8 @@ export async function POST() {
     posted_at: (() => { const parsed = new Date(String(job.publication_date ?? job.created_at ?? '')); return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString() })(),
   })
   const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy')), ...arbeitnow.map((job) => normalize(job, 'arbeitnow'))]
-  const remoteJobs = rawJobs.filter((job) => /(^|[,(\s-])remote($|[),\s-])|worldwide|work from home|distributed|anywhere/i.test(job.location) && !/on-site|onsite|in office|hybrid/i.test(`${job.location} ${job.description}`))
+  const remoteOnlyProviders = new Set(['himalayas', 'remotive', 'jobicy'])
+  const remoteJobs = rawJobs.filter((job) => !/on-site|onsite|in office|hybrid/i.test(`${job.location} ${job.description}`) && (remoteOnlyProviders.has(job.source) || /remote|worldwide|work from home|anywhere/i.test(job.location)))
   const jobs = Array.from(new Map(remoteJobs.map((job) => [`${job.source}:${job.source_id}`, job])).values())
   if (jobs.length === 0) return NextResponse.json({ error: 'Job providers returned no listings' }, { status: 502 })
 

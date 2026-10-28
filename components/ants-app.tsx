@@ -23,8 +23,10 @@ function isEnglishOpportunity(job: Record<string, unknown>) {
 }
 
 function isRemoteOpportunity(job: Record<string, unknown>) {
+  const source = String(job.source ?? '').toLowerCase()
   const location = String(job.location ?? '')
-  return /(^|[,(\s-])remote($|[),\s-])|worldwide|work from home/i.test(location) && !/on-site|onsite|in office|hybrid/i.test(location)
+  const remoteOnlyProvider = ['himalayas', 'remotive', 'jobicy'].includes(source)
+  return !/on-site|onsite|in office|hybrid/i.test(location) && (remoteOnlyProvider || /(^|[,((\s-])remote($|[),\s-])|worldwide|work from home|anywhere/i.test(location))
 }
 
 type Application = { id: string; opportunity_id: string; status: string; updated_at: string; opportunity?: Opportunity }
