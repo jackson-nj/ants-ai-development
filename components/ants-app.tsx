@@ -51,18 +51,24 @@ async function submitApplication(job: Opportunity): Promise<{ ok: true } | { ok:
   const userId = sessionData.session?.user.id
   if (!userId) {
     // Demo visitors have no Supabase session, so their applications live in this browser only.
-    const application: Application = { id: `demo-${job.id}`, opportunity_id: job.id, status: 'submitted', updated_at: new Date().toISOString(), opportunity: job }
+    const application: Application = { id: `demo-${job.id}`, opportunity_id: job.id, status: 'applied', updated_at: new Date().toISOString(), opportunity: job }
     try { window.localStorage.setItem(DEMO_APPLICATIONS_KEY, JSON.stringify([application, ...readDemoApplications().filter((item) => item.opportunity_id !== job.id)])) } catch {}
     addApplicationToCache(application)
     return { ok: true }
   }
-  const { data, error } = await client.from('applications').insert({ user_id: userId, opportunity_id: job.id, status: 'submitted' }).select('id, opportunity_id, status, updated_at').single()
+  // The table's status check constraint decides which values are valid; try the likely ones in order (23514 = check violation).
+  let result = await client.from('applications').insert({ user_id: userId, opportunity_id: job.id, status: 'applied' }).select('id, opportunity_id, status, updated_at').single()
+  for (const status of ['submitted', 'pending', 'sent']) {
+    if (result.error?.code !== '23514') break
+    result = await client.from('applications').insert({ user_id: userId, opportunity_id: job.id, status }).select('id, opportunity_id, status, updated_at').single()
+  }
+  const { data, error } = result
   // 23505 = unique violation: the user already applied, which is fine to treat as success.
   if (error && error.code !== '23505') {
     console.error('[v0] Application insert failed:', error)
     return { ok: false, message: error.message }
   }
-  addApplicationToCache({ id: data?.id ?? `pending-${job.id}`, opportunity_id: job.id, status: data?.status ?? 'submitted', updated_at: data?.updated_at ?? new Date().toISOString(), opportunity: job })
+  addApplicationToCache({ id: data?.id ?? `pending-${job.id}`, opportunity_id: job.id, status: data?.status ?? 'applied', updated_at: data?.updated_at ?? new Date().toISOString(), opportunity: job })
   return { ok: true }
 }
 
