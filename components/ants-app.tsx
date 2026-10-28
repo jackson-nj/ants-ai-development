@@ -96,7 +96,7 @@ function Landing({ go }: { go: (view: View) => void }) {
   const heroMessages = ['Find work that', 'Discover roles that', 'Build a career that', 'Choose work that']
 
   useEffect(() => {
-    const timer = window.setInterval(() => setHeroMessage((current) => (current + 1) % heroMessages.length), 3000)
+    const timer = window.setInterval(() => setHeroMessage((current) => (current + 1) % heroMessages.length), 5000)
     return () => window.clearInterval(timer)
   }, [heroMessages.length])
 
