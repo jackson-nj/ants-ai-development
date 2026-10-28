@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
+import { fetchRecentOpportunities, isVisibleOpportunity } from '@/lib/opportunity-filters'
 import {
   ArrowLeft, ArrowRight, Bell, BriefcaseBusiness, Check, ChevronDown, ClipboardList,
   Clock3, Copy, FileText, GraduationCap, LayoutDashboard, Lightbulb,
@@ -15,24 +16,9 @@ type Opportunity = {
   id: string; company: string; role: string; location: string; mode: string; salary: string; posted: string; score: number; color: string; tags: string[]; description: string; sourceUrl: string; postedAt?: string
 }
 
-// Listings older than this are hidden here and purged from the database by the sync route.
-const OPPORTUNITY_MAX_AGE_MONTHS = 2
-const opportunityCutoff = () => { const date = new Date(); date.setMonth(date.getMonth() - OPPORTUNITY_MAX_AGE_MONTHS); return date }
 const isPostedToday = (postedAt?: string) => !!postedAt && new Date(postedAt).toDateString() === new Date().toDateString()
 
 const opportunities: Opportunity[] = []
-
-function isEnglishOpportunity(job: Record<string, unknown>) {
-  const text = [job.title, job.company, job.location, job.description, job.jobDescription].filter(Boolean).join(' ')
-  return !/[\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff\u0900-\u097f\u0e00-\u0e7f\u3040-\u30ff\u3130-\u318f\u4e00-\u9fff]/u.test(text)
-}
-
-function isRemoteOpportunity(job: Record<string, unknown>) {
-  const source = String(job.source ?? '').toLowerCase()
-  const location = String(job.location ?? '')
-  const remoteOnlyProvider = ['himalayas', 'remotive', 'jobicy'].includes(source)
-  return !/on-site|onsite|in office|hybrid/i.test(location) && (remoteOnlyProvider || /(^|[,((\s-])remote($|[),\s-])|worldwide|work from home|anywhere/i.test(location))
-}
 
 type Application = { id: string; opportunity_id: string; status: string; updated_at: string; opportunity?: Opportunity }
 let platformCache: { jobs: Opportunity[]; applications: Application[] } | null = null
@@ -94,11 +80,11 @@ function usePlatformData() {
           const timeout = window.setTimeout(() => controller.abort(), 25000)
           await fetch('/api/opportunities/sync', { method: 'POST', signal: controller.signal }).catch(() => undefined)
           window.clearTimeout(timeout)
-          const [{ data: jobRows }, { data: sessionData }] = await Promise.all([
-            supabase.from('opportunities').select('*').gte('posted_at', opportunityCutoff().toISOString()).order('posted_at', { ascending: false }),
+          const [{ rows: jobRows }, { data: sessionData }] = await Promise.all([
+            fetchRecentOpportunities(supabase),
             supabase.auth.getSession(),
           ])
-          const mapped = (jobRows ?? []).filter((job) => isEnglishOpportunity(job) && isRemoteOpportunity(job)).map((job) => ({ id: job.id, company: job.company, role: job.role, location: job.location, mode: job.mode, salary: job.salary, posted: new Date(job.posted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), score: job.match_score ?? 0, color: '#426b5a', tags: Array.isArray(job.tags) ? job.tags.filter((tag): tag is string => typeof tag === 'string') : [], description: job.description ?? '', sourceUrl: String(job.source_url ?? ''), postedAt: job.posted_at }))
+          const mapped = jobRows.filter(isVisibleOpportunity).map((job) => ({ id: job.id, company: job.company, role: job.role, location: job.location, mode: job.mode, salary: job.salary, posted: new Date(job.posted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), score: job.match_score ?? 0, color: '#426b5a', tags: Array.isArray(job.tags) ? job.tags.filter((tag): tag is string => typeof tag === 'string') : [], description: job.description ?? '', sourceUrl: String(job.source_url ?? ''), postedAt: job.posted_at }))
           const applications = !sessionData.session?.user ? readDemoApplications() : await supabase.from('applications').select('id, opportunity_id, status, updated_at, opportunities(*)').eq('user_id', sessionData.session.user.id).order('updated_at', { ascending: false }).then(({ data }) => (data ?? []).map((row: any) => ({ ...row, opportunity: mapped.find((job) => job.id === row.opportunity_id) })))
           platformCache = { jobs: mapped, applications }
           return platformCache

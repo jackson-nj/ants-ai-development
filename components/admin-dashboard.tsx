@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
+import { fetchRecentOpportunities, isVisibleOpportunity } from '@/lib/opportunity-filters'
 import { ArrowLeft, BriefcaseBusiness, ClipboardList, Eye, EyeOff, LogIn, LogOut, RefreshCw, ShieldCheck, Sparkles, Users } from 'lucide-react'
 
 // Only this account may open the dashboard; its password lives in Supabase Auth, never in code.
@@ -28,16 +29,17 @@ export function AdminDashboard() {
     const isAuthorizedAdmin = isAdminEmail(user.email)
     if (!isAuthorizedAdmin) { setMessage('Please sign in with the administrator account.'); return }
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
-    const [{ count: opportunityCount, error: opportunityError }, { count: newTodayCount }, { data: applicationRows, count: applicationCount, error: applicationError }] = await Promise.all([
-      supabase.from('opportunities').select('id', { count: 'exact', head: true }),
-      supabase.from('opportunities').select('id', { count: 'exact', head: true }).gte('posted_at', startOfToday.toISOString()),
+    const [{ rows: opportunityRows, error: opportunityError }, { data: applicationRows, count: applicationCount, error: applicationError }] = await Promise.all([
+      // Count with the same rules the Opportunities page uses, so both numbers match.
+      fetchRecentOpportunities(supabase, 'id, source, company, role, location, description, posted_at'),
       supabase.from('applications').select('id, user_id, status, updated_at, opportunities(role, company)', { count: 'exact' }).order('updated_at', { ascending: false }),
     ])
     if (opportunityError || applicationError) { setMessage('Admin data could not be loaded. Check Supabase table access.'); return }
+    const liveOpportunities = opportunityRows.filter(isVisibleOpportunity)
     const users = new Map<string, AdminUser>()
     ;(applicationRows ?? []).forEach((row) => { const existing = users.get(row.user_id); users.set(row.user_id, { id: row.user_id, applications: (existing?.applications ?? 0) + 1, lastActive: existing?.lastActive ?? row.updated_at }) })
     const recent = (applicationRows ?? []).slice(0, 8).map((row: any) => { const job = Array.isArray(row.opportunities) ? row.opportunities[0] : row.opportunities; return { id: row.id, userId: row.user_id, status: row.status, updatedAt: row.updated_at, role: job?.role ?? 'Removed listing', company: job?.company ?? '—' } })
-    setState({ email: user.email ?? 'Signed-in user', users: Array.from(users.values()), recent, opportunities: opportunityCount ?? 0, newToday: newTodayCount ?? 0, applications: applicationCount ?? 0, refreshedAt: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) }); setMessage('')
+    setState({ email: user.email ?? 'Signed-in user', users: Array.from(users.values()), recent, opportunities: liveOpportunities.length, newToday: liveOpportunities.filter((job) => new Date(job.posted_at) >= startOfToday).length, applications: applicationCount ?? 0, refreshedAt: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) }); setMessage('')
   }
   async function logout() {
     await getSupabaseBrowserClient().auth.signOut()
