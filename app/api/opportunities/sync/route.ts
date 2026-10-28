@@ -43,7 +43,8 @@ export async function POST() {
   const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy')), ...arbeitnow.map((job) => normalize(job, 'arbeitnow'))]
   const remoteOnlyProviders = new Set(['himalayas', 'remotive', 'jobicy'])
   const remoteJobs = rawJobs.filter((job) => !/on-site|onsite|in office|hybrid/i.test(`${job.location} ${job.description}`) && (remoteOnlyProviders.has(job.source) || /remote|worldwide|work from home|anywhere/i.test(job.location)))
-  const jobs = Array.from(new Map(remoteJobs.map((job) => [`${job.source}:${job.source_id}`, job])).values())
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 2)
+  const jobs = Array.from(new Map(remoteJobs.filter((job) => new Date(job.posted_at) >= cutoff).map((job) => [`${job.source}:${job.source_id}`, job])).values())
   if (jobs.length === 0) return NextResponse.json({ error: 'Job providers returned no listings' }, { status: 502 })
 
   const { error } = await supabase.from('opportunities').upsert(jobs, { onConflict: 'source,source_id' })
@@ -51,5 +52,13 @@ export async function POST() {
     console.error('[v0] Opportunity sync database error:', error.message)
     return NextResponse.json({ error: 'Unable to save live opportunities', detail: error.message }, { status: 500 })
   }
+
+  // Purge listings older than two months to save storage, keeping any that someone has applied to.
+  const { data: appliedRows } = await supabase.from('applications').select('opportunity_id')
+  const appliedIds = Array.from(new Set((appliedRows ?? []).map((row) => row.opportunity_id).filter(Boolean)))
+  let purge = supabase.from('opportunities').delete().lt('posted_at', cutoff.toISOString())
+  if (appliedIds.length) purge = purge.not('id', 'in', `(${appliedIds.join(',')})`)
+  const { error: purgeError } = await purge
+  if (purgeError) console.error('[v0] Opportunity purge error:', purgeError.message)
   return NextResponse.json({ synced: jobs.length, providers: { himalayas: himalayas.length, remotive: remotive.length, jobicy: jobicy.length, arbeitnow: arbeitnow.length } })
 }
