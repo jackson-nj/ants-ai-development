@@ -131,7 +131,7 @@ function Auth({ mode, go }: { mode: 'login' | 'signup' | 'demo'; go: (view: View
     const supabase = getSupabaseBrowserClient()
     const result = isLogin
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } })
+      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`, data: { full_name: name } } })
     setSubmitting(false)
     if (result.error) { setError(result.error.message); return }
     go(isLogin ? 'dashboard' : 'onboarding')
