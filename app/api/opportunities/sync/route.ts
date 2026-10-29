@@ -38,7 +38,8 @@ export async function POST() {
     description: String(job.description ?? job.jobDescription ?? job.jobExcerpt ?? job.excerpt ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000),
     tags: Array.isArray(job.tags) ? job.tags.map(String).slice(0, 10) : Array.isArray(job.tags_and_skills) ? job.tags_and_skills.map(String).slice(0, 10) : [],
     match_score: 0,
-    posted_at: (() => { const parsed = new Date(String(job.publication_date ?? job.created_at ?? '')); return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString() })(),
+    // Remotive sends publication_date, Jobicy an ISO pubDate, Himalayas a Unix-seconds pubDate, Arbeitnow Unix-seconds created_at.
+    posted_at: (() => { const raw = job.publication_date ?? job.pubDate ?? job.created_at; const parsed = typeof raw === 'number' ? new Date(raw < 1e12 ? raw * 1000 : raw) : new Date(String(raw ?? '')); return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString() })(),
   })
   const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy')), ...arbeitnow.map((job) => normalize(job, 'arbeitnow'))]
   const remoteOnlyProviders = new Set(['himalayas', 'remotive', 'jobicy'])
