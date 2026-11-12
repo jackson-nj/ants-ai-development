@@ -37,20 +37,34 @@ function restoreStructure(text: string) {
     .map((line, index) => index === 0 ? line.replace(/^•\s*/, '') : line).join('\n')
 }
 
+// A short unbulleted line inside a section ("Languages", "Work Assignment") labels the lines after it.
+const SUBHEADING_PREFIX = '## '
+const isSubheading = (line: string) => !line.startsWith('•') && line.split(/\s+/).length <= 4 && !/[.!?,;]$/.test(line)
+export const subheadingOf = (item: string) => item.startsWith(SUBHEADING_PREFIX) ? item.slice(SUBHEADING_PREFIX.length) : null
+
+// Section order on the page: what the job is, what it needs, anything else, then what it offers.
+const ORDER: Record<SectionKind, number> = { responsibilities: 0, requirements: 1, other: 2, benefits: 3 }
+
 export function parseJobDescription(text: string) {
   const intro: string[] = []
   const sections: JobSection[] = []
-  for (const line of restoreStructure(text).split('\n').map((value) => value.trim()).filter(Boolean)) {
+  // Job boards append their own footer ("Originally posted on Himalayas"), which is not part of the job.
+  const lines = restoreStructure(text).split('\n').map((value) => value.trim()).filter((line) => line && !/^(originally )?posted (on|via) /i.test(line))
+  for (const line of lines) {
     if (isHeading(line)) {
       const title = line.replace(/:$/, '')
       sections.push({ title, kind: KINDS.find(([, pattern]) => pattern.test(title))?.[0] ?? 'other', items: [] })
     } else if (sections.length) {
-      sections[sections.length - 1].items.push(line.replace(/^•\s*/, ''))
-    } else {
+      const items = sections[sections.length - 1].items
+      const item = isSubheading(line) ? `${SUBHEADING_PREFIX}${line}` : line.replace(/^•\s*/, '')
+      if (!items.includes(item)) items.push(item)
+    } else if (!/^(description|job description)$/i.test(line)) {
       intro.push(line.replace(/^•\s*/, ''))
     }
   }
-  return { intro, sections: sections.filter((section) => section.items.length) }
+  // A section holding only sub-headings has nothing to read.
+  const filled = sections.filter((section) => section.items.some((item) => !subheadingOf(item)))
+  return { intro, sections: filled.map((section, index) => ({ section, index })).sort((a, b) => ORDER[a.section.kind] - ORDER[b.section.kind] || a.index - b.index).map(({ section }) => section) }
 }
 
 // Remote-only boards give the region a remote worker must live in; show it as part of a remote label.
