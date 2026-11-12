@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { asDocument, DAILY_LISTING_EMBED_BUDGET, EMBED_REQUESTS_PER_MINUTE, embedTexts, GeminiRateLimitError, isGeminiConfigured, quotaDay, toVector } from '@/lib/gemini'
+import { listingToText } from '@/lib/matching'
+import { opportunityCutoff } from '@/lib/opportunity-filters'
 
 const HIMALAYAS_URL = 'https://himalayas.app/jobs/api?limit=100'
 const REMOTIVE_URL = 'https://remotive.com/api/remote-jobs?limit=100'
 const JOBICY_URL = 'https://jobicy.com/api/v2/remote-jobs?count=100'
 const ARBEITNOW_URL = 'https://arbeitnow.com/api/job-board-api'
+// Listings embedded per sync, kept under Gemini's per-minute request limit; the rest are picked up on later syncs.
+const EMBED_PER_SYNC = EMBED_REQUESTS_PER_MINUTE - 10
 
 export const maxDuration = 30
 
@@ -44,7 +49,7 @@ export async function POST() {
   const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy')), ...arbeitnow.map((job) => normalize(job, 'arbeitnow'))]
   const remoteOnlyProviders = new Set(['himalayas', 'remotive', 'jobicy'])
   const remoteJobs = rawJobs.filter((job) => !/on-site|onsite|in office|hybrid/i.test(`${job.location} ${job.description}`) && (remoteOnlyProviders.has(job.source) || /remote|worldwide|work from home|anywhere/i.test(job.location)))
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 2)
+  const cutoff = opportunityCutoff()
   const jobs = Array.from(new Map(remoteJobs.filter((job) => new Date(job.posted_at) >= cutoff).map((job) => [`${job.source}:${job.source_id}`, job])).values())
   if (jobs.length === 0) return NextResponse.json({ error: 'Job providers returned no listings' }, { status: 502 })
 
@@ -54,12 +59,38 @@ export async function POST() {
     return NextResponse.json({ error: 'Unable to save live opportunities', detail: error.message }, { status: 500 })
   }
 
-  // Purge listings older than two months to save storage, keeping any that someone has applied to.
+  // Purge listings older than the listing window (30 days) to save storage, keeping any that someone has applied to.
   const { data: appliedRows } = await supabase.from('applications').select('opportunity_id')
   const appliedIds = Array.from(new Set((appliedRows ?? []).map((row) => row.opportunity_id).filter(Boolean)))
   let purge = supabase.from('opportunities').delete().lt('posted_at', cutoff.toISOString())
   if (appliedIds.length) purge = purge.not('id', 'in', `(${appliedIds.join(',')})`)
   const { error: purgeError } = await purge
   if (purgeError) console.error('[v0] Opportunity purge error:', purgeError.message)
-  return NextResponse.json({ synced: jobs.length, providers: { himalayas: himalayas.length, remotive: remotive.length, jobicy: jobicy.length, arbeitnow: arbeitnow.length } })
+
+  // Generate Gemini embeddings for recent listings that do not have one yet (FR-05).
+  // Listings stop at the daily budget so the rest of Gemini's quota stays free for profiles; the
+  // ai_usage counter is best-effort, so a missing table never blocks embedding.
+  let embedded = 0
+  const day = quotaDay()
+  const { data: usage } = await supabase.from('ai_usage').select('listing_embeddings').eq('day', day).maybeSingle()
+  const usedToday = usage?.listing_embeddings ?? 0
+  const allowance = Math.min(EMBED_PER_SYNC, DAILY_LISTING_EMBED_BUDGET - usedToday)
+  if (isGeminiConfigured() && allowance > 0) {
+    const { data: pending } = await supabase.from('opportunities').select('id, role, company, tags, description').is('embedding', null).gte('posted_at', cutoff.toISOString()).order('posted_at', { ascending: false }).limit(allowance)
+    if (pending?.length) {
+      try {
+        const vectors = await embedTexts(pending.map((listing) => asDocument(listing.role, listingToText(listing))))
+        for (let start = 0; start < pending.length; start += 25) {
+          await Promise.all(pending.slice(start, start + 25).map((listing, offset) => supabase.from('opportunities').update({ embedding: toVector(vectors[start + offset]) }).eq('id', listing.id)))
+        }
+        embedded = pending.length
+        await supabase.from('ai_usage').upsert({ day, listing_embeddings: usedToday + embedded })
+      } catch (embedError) {
+        // A rate limit is expected when several syncs run in the same minute; the next sync continues.
+        if (embedError instanceof GeminiRateLimitError) console.warn('[v0] Opportunity embedding paused:', embedError.message)
+        else console.error('[v0] Opportunity embedding error:', embedError)
+      }
+    }
+  }
+  return NextResponse.json({ synced: jobs.length, embedded, providers: { himalayas: himalayas.length, remotive: remotive.length, jobicy: jobicy.length, arbeitnow: arbeitnow.length } })
 }

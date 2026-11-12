@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Listings older than this are hidden in the app and purged from the database by the sync route.
-export const OPPORTUNITY_MAX_AGE_MONTHS = 2
-export const opportunityCutoff = () => { const date = new Date(); date.setMonth(date.getMonth() - OPPORTUNITY_MAX_AGE_MONTHS); return date }
+export const OPPORTUNITY_MAX_AGE_DAYS = 30
+export const opportunityCutoff = () => new Date(Date.now() - OPPORTUNITY_MAX_AGE_DAYS * 864e5)
 
 export function isEnglishOpportunity(job: Record<string, unknown>) {
-  const text = [job.title, job.company, job.location, job.description, job.jobDescription].filter(Boolean).join(' ')
+  const text = [job.title, job.role, job.company, job.location, job.description, job.jobDescription].filter(Boolean).join(' ')
   return !/[Ѐ-ӿ֐-׿؀-ۿऀ-ॿ฀-๿぀-ヿ㄰-㆏一-鿿]/u.test(text)
 }
 
