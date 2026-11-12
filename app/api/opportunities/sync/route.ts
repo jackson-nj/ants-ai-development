@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { asDocument, DAILY_LISTING_EMBED_BUDGET, EMBED_REQUESTS_PER_MINUTE, embedTexts, GeminiRateLimitError, isGeminiConfigured, quotaDay, toVector } from '@/lib/gemini'
 import { listingToText } from '@/lib/matching'
+import { htmlToText } from '@/lib/job-text'
 import { opportunityCutoff } from '@/lib/opportunity-filters'
 
 const HIMALAYAS_URL = 'https://himalayas.app/jobs/api?limit=100'
@@ -40,13 +41,14 @@ export async function POST() {
     location: String(job.candidate_required_location ?? job.jobGeo ?? (Array.isArray(job.locationRestrictions) ? job.locationRestrictions.join(', ') : job.location) ?? 'Remote'),
     mode: String(job.job_type ?? (Array.isArray(job.jobType) ? job.jobType.join(', ') : job.jobType) ?? job.type ?? 'Full-time'),
     salary: String(job.salary ?? (job.minSalary && job.maxSalary ? `${job.currency ?? ''} ${job.minSalary}-${job.maxSalary}/${job.salaryPeriod ?? 'year'}` : 'Not listed')),
-    description: String(job.description ?? job.jobDescription ?? job.jobExcerpt ?? job.excerpt ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000),
+    // Headings and bullets are kept as lines so the detail page can show responsibilities, requirements and benefits.
+    description: htmlToText(String(job.description ?? job.jobDescription ?? job.jobExcerpt ?? job.excerpt ?? '')).slice(0, 12000),
     tags: Array.isArray(job.tags) ? job.tags.map(String).slice(0, 10) : Array.isArray(job.tags_and_skills) ? job.tags_and_skills.map(String).slice(0, 10) : [],
     match_score: 0,
     // Remotive sends publication_date, Jobicy an ISO pubDate, Himalayas a Unix-seconds pubDate, Arbeitnow Unix-seconds created_at.
     posted_at: (() => { const raw = job.publication_date ?? job.pubDate ?? job.created_at; const parsed = typeof raw === 'number' ? new Date(raw < 1e12 ? raw * 1000 : raw) : new Date(String(raw ?? '')); return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString() })(),
   })
-  const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy')), ...arbeitnow.map((job) => normalize(job, 'arbeitnow'))]
+  const rawJobs = [...himalayas.map((job) => normalize(job, 'himalayas')), ...remotive.map((job) => normalize(job, 'remotive')), ...jobicy.map((job) => normalize(job, 'jobicy')), ...arbeitnow.filter((job) => job.remote === true).map((job) => normalize(job, 'arbeitnow'))]
   const remoteOnlyProviders = new Set(['himalayas', 'remotive', 'jobicy'])
   const remoteJobs = rawJobs.filter((job) => !/on-site|onsite|in office|hybrid/i.test(`${job.location} ${job.description}`) && (remoteOnlyProviders.has(job.source) || /remote|worldwide|work from home|anywhere/i.test(job.location)))
   const cutoff = opportunityCutoff()

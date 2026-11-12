@@ -2,13 +2,17 @@
 
 export type CandidateProfile = {
   full_name: string; location: string; role_title: string; years_experience: number | null; looking_for: string
-  skills: string[]; experience: string; education: string; cv_text: string
+  skills: string[]; experience: string; education: string; cv_text: string; cv_file_name: string
 }
 
-export const emptyProfile = (): CandidateProfile => ({ full_name: '', location: '', role_title: '', years_experience: null, looking_for: '', skills: [], experience: '', education: '', cv_text: '' })
+export const emptyProfile = (): CandidateProfile => ({ full_name: '', location: '', role_title: '', years_experience: null, looking_for: '', skills: [], experience: '', education: '', cv_text: '', cv_file_name: '' })
 
-// FR-03: a profile with fewer than 3 skills and little written background is too sparse to embed meaningfully.
+// FR-03: profiles with fewer than 3 skills or little written background still get matches, with a
+// prompt to add more because sparse profiles match less accurately.
 export const MIN_SKILLS = 3
+
+// Any skill, a role or a short description gives the AI enough to rank listings.
+export const canMatch = (profile: CandidateProfile) => profile.skills.length > 0 || Boolean(profile.role_title.trim()) || (profile.experience + profile.cv_text + profile.looking_for).trim().length >= 20
 export function profileGaps(profile: CandidateProfile) {
   const gaps: string[] = []
   if (!profile.role_title.trim()) gaps.push('your current or target role')

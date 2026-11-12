@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { asQuery, embedTexts, isGeminiConfigured, toVector } from '@/lib/gemini'
-import { emptyProfile, keywordScore, profileGaps, profileToText, similarityToScore, type CandidateProfile } from '@/lib/matching'
+import { canMatch, emptyProfile, keywordScore, profileGaps, profileToText, similarityToScore, type CandidateProfile } from '@/lib/matching'
 import { fetchRecentOpportunities, opportunityCutoff } from '@/lib/opportunity-filters'
 
 export const maxDuration = 30
@@ -18,7 +18,7 @@ export async function POST() {
   if (profileError) return NextResponse.json({ error: 'Unable to load your profile', detail: profileError.message }, { status: 500 })
   const profile: CandidateProfile = { ...emptyProfile(), ...(row ?? {}), skills: row?.skills ?? [] }
   const gaps = profileGaps(profile)
-  if (!row || gaps.length) return NextResponse.json({ needsProfile: true, gaps, skills: profile.skills, matches: [] })
+  if (!row || !canMatch(profile)) return NextResponse.json({ needsProfile: true, gaps, skills: profile.skills, matches: [] })
 
   const cutoff = opportunityCutoff().toISOString()
   const semantic = new Map<string, number>()
@@ -47,5 +47,5 @@ export async function POST() {
     if (error) return NextResponse.json({ error: 'Unable to rank opportunities', detail: error.message }, { status: 500 })
     matches = rows.map((listing) => ({ id: String(listing.id), score: semantic.get(String(listing.id)) ?? keywordScore(profile, listing) }))
   }
-  return NextResponse.json({ needsProfile: false, gaps: [], skills: profile.skills, matches })
+  return NextResponse.json({ needsProfile: false, gaps, skills: profile.skills, matches })
 }
